@@ -1,0 +1,15 @@
+{
+    "project_name": "io-manager (AI-PM Service Construction)",
+    "status": "PLANNING",
+    "last_updated": "2026-03-02T08:33:02.711193",
+    "tasks": [
+        {
+            "id": "TASK_1",
+            "name": "Task 1: Bootstrap Spring Boot Application (io-manager)",
+            "description": "Set up a clean Spring Boot 3.x project (Maven or Gradle) with basic dependencies (Web, Lombok, JPA). Setup the initial package structure: controller, service, domain, config. Commit and push the initial structure to the main branch.",
+            "status": "TODO",
+            "assignee": "TBD",
+            "updated_at": "2026-03-02T08:35:18.895115"
+        }
+    ]
+}
