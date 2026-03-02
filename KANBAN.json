@@ -1,7 +1,7 @@
 {
     "project_name": "io-manager (AI-PM Service Construction)",
     "status": "IN_PROGRESS",
-    "last_updated": "2026-03-02T08:53:30.000000",
+    "last_updated": "2026-03-02T08:54:42.383334",
     "tasks": [
         {
             "id": "TASK_1",
@@ -9,7 +9,15 @@
             "description": "Set up a clean Spring Boot 3.x project (Maven or Gradle) with basic dependencies (Web, Lombok, JPA). Setup the initial package structure: controller, service, domain, config. Commit and push the initial structure to the main branch.",
             "status": "DONE",
             "assignee": "<@1477215675675054161>",
-            "updated_at": "2026-03-02T08:53:30.000000"
+            "updated_at": "2026-03-02T08:50:50.542545"
+        },
+        {
+            "id": "TASK_2",
+            "name": "Task 2: Core Domain Models and Persistence (Project, Task, Kanban)",
+            "description": "Design the core domain models (Project, Task, Kanban) in the 'domain' package. Create matching JPA entities and Repository interfaces. Include the DDL scripts (e.g., schema.sql) in 'src/main/resources'. Ensure entities map correctly to the AI-PM blueprint requirements.",
+            "status": "IN_PROGRESS",
+            "assignee": "<@1477210080255414333>",
+            "updated_at": "2026-03-02T08:54:42.383303"
         }
     ]
 }
