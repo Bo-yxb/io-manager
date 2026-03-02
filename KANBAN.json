@@ -1,7 +1,7 @@
 {
     "project_name": "io-manager (AI-PM Service Construction)",
     "status": "IN_PROGRESS",
-    "last_updated": "2026-03-02T12:10:04.872317",
+    "last_updated": "2026-03-02T12:14:54.369376",
     "tasks": [
         {
             "id": "TASK_1",
@@ -23,9 +23,9 @@
             "id": "TASK_3",
             "name": "Task 3: Implement Initial CI/CD and Remote Deployment (182.92.83.121:7100)",
             "description": "Create a deployment pipeline or an SSH-based deployment shell script that automatically builds 'io-manager' to a jar file and copies it to '182.92.83.121', then runs it on port '7100'. Add the script to 'scripts/deploy.sh'. This will enable continuous feedback and live testing.",
-            "status": "IN_PROGRESS",
+            "status": "DONE",
             "assignee": "<@1477215675675054161> 赵今麦",
-            "updated_at": "2026-03-02T12:10:04.872300"
+            "updated_at": "2026-03-02T12:14:54.369349"
         }
     ]
 }
