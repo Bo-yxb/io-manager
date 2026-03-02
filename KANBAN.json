@@ -1,7 +1,7 @@
 {
     "project_name": "io-manager (AI-PM Service Construction)",
     "status": "IN_PROGRESS",
-    "last_updated": "2026-03-02T09:35:13.305368",
+    "last_updated": "2026-03-02T12:10:04.872317",
     "tasks": [
         {
             "id": "TASK_1",
@@ -15,17 +15,17 @@
             "id": "TASK_2",
             "name": "Task 2: Core Domain Models and Persistence (Project, Task, Kanban)",
             "description": "Design the core domain models (Project, Task, Kanban) in the 'domain' package. Create matching JPA entities and Repository interfaces. Include the DDL scripts (e.g., schema.sql) in 'src/main/resources'. Ensure entities map correctly to the AI-PM blueprint requirements.",
-            "status": "IN_PROGRESS",
-            "assignee": "<@1477210080255414333>",
-            "updated_at": "2026-03-02T08:54:42.383303"
+            "status": "DONE",
+            "assignee": "<@1477210080255414333> 高圆圆",
+            "updated_at": "2026-03-02T12:10:04.857624"
         },
         {
             "id": "TASK_3",
             "name": "Task 3: Implement Initial CI/CD and Remote Deployment (182.92.83.121:7100)",
             "description": "Create a deployment pipeline or an SSH-based deployment shell script that automatically builds 'io-manager' to a jar file and copies it to '182.92.83.121', then runs it on port '7100'. Add the script to 'scripts/deploy.sh'. This will enable continuous feedback and live testing.",
-            "status": "TODO",
+            "status": "IN_PROGRESS",
             "assignee": "<@1477215675675054161> 赵今麦",
-            "updated_at": "2026-03-02T09:35:13.305314"
+            "updated_at": "2026-03-02T12:10:04.872300"
         }
     ]
 }
