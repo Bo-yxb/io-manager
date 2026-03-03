@@ -45,8 +45,20 @@
   </section>
 
   <section>
-    <h2>风险告警</h2>
+    <h2>风险摘要</h2>
+    <p id="riskSummary" style="color:#ff7b7b;font-weight:bold"></p>
+    <h3>详细风险</h3>
     <ul id="risks"></ul>
+  </section>
+
+  <section>
+    <h2>任务模板</h2>
+    <ul id="templates"></ul>
+  </section>
+
+  <section>
+    <h2>Worker 状态</h2>
+    <ul id="workers"></ul>
   </section>
 
   <script>
@@ -93,6 +105,15 @@
       `).join('');
 
       document.getElementById('risks').innerHTML = (data.risks || []).map(r => `<li class="danger">[${r.type}] ${r.title} (${r.assignee}) - ${r.note}</li>`).join('') || '<li>暂无风险</li>';
+      document.getElementById('riskSummary').textContent = data.riskSummary || '暂无风险';
+
+      // Load templates and workers
+      const [templates, workers] = await Promise.all([
+        api('/templates'),
+        api('/workers')
+      ]);
+      document.getElementById('templates').innerHTML = (templates.data || []).map(t => `<li>${t.name} (tags: ${t.tags.join(', ')}) - 超时:${t.defaultTimeout}min</li>`).join('') || '<li>无模板</li>';
+      document.getElementById('workers').innerHTML = (workers.data || []).map(w => `<li>${w.name} [${w.status}] tags:${w.tags.join(', ')}</li>`).join('') || '<li>无Worker</li>';
     }
 
     async function createProject() {
