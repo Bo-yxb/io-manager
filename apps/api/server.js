@@ -15,6 +15,10 @@ const REDIS_PORT = Number(process.env.REDIS_PORT || 6379);
 const REDIS_PASSWORD = process.env.REDIS_PASSWORD || '';
 const REDIS_DB = Number(process.env.REDIS_DB || 0);
 
+const BOSS_TOKEN = process.env.BOSS_TOKEN || 'boss_token_7100';
+const PM_TOKEN = process.env.PM_TOKEN || 'pm_token_7100';
+const WORKER_TOKEN = process.env.WORKER_TOKEN || 'worker_token_7100';
+
 const REDIS_KEYS = {
   projects: 'io:projects',
   tasks: 'io:tasks',
@@ -103,6 +107,24 @@ async function saveState(state) {
     .exec();
 }
 
+function resolveActor(req) {
+  const token = req.header('x-api-key') || '';
+  if (token === BOSS_TOKEN) return { role: 'boss', id: 'boss' };
+  if (token === PM_TOKEN) return { role: 'pm', id: 'pm' };
+  if (token === WORKER_TOKEN) return { role: 'worker', id: 'worker' };
+  return null;
+}
+
+function requireRoles(...roles) {
+  return (req, res, next) => {
+    const actor = resolveActor(req);
+    if (!actor) return res.status(401).json({ code: 401, msg: 'unauthorized: missing/invalid x-api-key' });
+    if (!roles.includes(actor.role)) return res.status(403).json({ code: 403, msg: 'forbidden' });
+    req.actor = actor;
+    next();
+  };
+}
+
 function pushEvent(state, type, payload) {
   state.events.push({ id: nanoid(), type, payload, at: new Date().toISOString() });
 }
@@ -147,12 +169,12 @@ app.get('/api/health', async (_req, res) => {
   });
 });
 
-app.get('/api/projects', async (_req, res) => {
+app.get('/api/projects', requireRoles('boss', 'pm', 'worker'), async (_req, res) => {
   const state = await loadState();
   res.json({ code: 0, data: state.projects });
 });
 
-app.post('/api/projects', async (req, res) => {
+app.post('/api/projects', requireRoles('boss', 'pm'), async (req, res) => {
   const { name, goal, owner = 'boss' } = req.body || {};
   if (!name || !goal) return res.status(400).json({ code: 1, msg: 'name and goal required' });
 
@@ -166,19 +188,19 @@ app.post('/api/projects', async (req, res) => {
     createdAt: new Date().toISOString()
   };
   state.projects.push(project);
-  pushEvent(state, 'ProjectCreated', { projectId: project.id });
+  pushEvent(state, 'ProjectCreated', { projectId: project.id, actor: req.actor.id, role: req.actor.role });
   await saveState(state);
   res.status(201).json({ code: 0, data: project });
 });
 
-app.get('/api/tasks', async (req, res) => {
+app.get('/api/tasks', requireRoles('boss', 'pm', 'worker'), async (req, res) => {
   const { projectId } = req.query;
   const state = await loadState();
   const tasks = projectId ? state.tasks.filter(t => t.projectId === projectId) : state.tasks;
   res.json({ code: 0, data: tasks });
 });
 
-app.post('/api/tasks', async (req, res) => {
+app.post('/api/tasks', requireRoles('boss', 'pm'), async (req, res) => {
   const {
     projectId,
     title,
@@ -200,18 +222,19 @@ app.post('/api/tasks', async (req, res) => {
     dependsOn,
     status: 'Backlog',
     note: '',
+    artifacts: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     timeoutAt: new Date(Date.now() + Number(timeoutMinutes) * 60 * 1000).toISOString()
   };
 
   state.tasks.push(task);
-  pushEvent(state, 'TaskCreated', { taskId: task.id });
+  pushEvent(state, 'TaskCreated', { taskId: task.id, actor: req.actor.id, role: req.actor.role });
   await saveState(state);
   res.status(201).json({ code: 0, data: task });
 });
 
-app.patch('/api/tasks/:id/status', async (req, res) => {
+app.patch('/api/tasks/:id/status', requireRoles('boss', 'pm', 'worker'), async (req, res) => {
   const { status, note } = req.body || {};
   if (!STATUS.includes(status)) return res.status(400).json({ code: 1, msg: 'invalid status' });
 
@@ -234,17 +257,63 @@ app.patch('/api/tasks/:id/status', async (req, res) => {
   task.note = note || task.note;
   task.updatedAt = new Date().toISOString();
 
-  pushEvent(state, 'TaskStatusChanged', { taskId: task.id, status, note: task.note });
+  pushEvent(state, 'TaskStatusChanged', {
+    taskId: task.id,
+    status,
+    note: task.note,
+    actor: req.actor.id,
+    role: req.actor.role
+  });
   await saveState(state);
   res.json({ code: 0, data: task });
 });
 
-app.get('/api/tasks/alerts', async (_req, res) => {
+app.post('/api/worker/report', requireRoles('boss', 'pm', 'worker'), async (req, res) => {
+  const { taskId, status, note = '', artifacts = null } = req.body || {};
+  if (!taskId || !status) return res.status(400).json({ code: 1, msg: 'taskId and status required' });
+  if (!STATUS.includes(status)) return res.status(400).json({ code: 1, msg: 'invalid status' });
+
+  const state = await loadState();
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return res.status(404).json({ code: 1, msg: 'task not found' });
+
+  if (status === 'InProgress') {
+    const deps = unresolvedDeps(state, task);
+    if (deps.length) {
+      return res.status(409).json({ code: 2, msg: 'dependency not resolved', data: { unresolvedDependsOn: deps } });
+    }
+  }
+
+  task.status = status;
+  task.note = note || task.note;
+  task.artifacts = artifacts;
+  task.updatedAt = new Date().toISOString();
+
+  pushEvent(state, 'WorkerReported', {
+    taskId: task.id,
+    status,
+    note: task.note,
+    artifacts,
+    actor: req.actor.id,
+    role: req.actor.role
+  });
+
+  await saveState(state);
+  res.json({ code: 0, data: task });
+});
+
+app.get('/api/tasks/alerts', requireRoles('boss', 'pm'), async (_req, res) => {
   const state = await loadState();
   res.json({ code: 0, data: computeRisks(state) });
 });
 
-app.get('/api/dashboard/overview', async (_req, res) => {
+app.get('/api/audit/logs', requireRoles('boss', 'pm'), async (req, res) => {
+  const state = await loadState();
+  const limit = Math.max(1, Math.min(Number(req.query.limit || 100), 500));
+  res.json({ code: 0, data: state.events.slice(-limit).reverse() });
+});
+
+app.get('/api/dashboard/overview', requireRoles('boss', 'pm', 'worker'), async (_req, res) => {
   const state = await loadState();
   const stats = state.tasks.reduce((acc, t) => {
     acc[t.status] = (acc[t.status] || 0) + 1;
