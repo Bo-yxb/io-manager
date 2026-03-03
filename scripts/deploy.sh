@@ -11,7 +11,7 @@ BRANCH="${BRANCH:-main}"
 
 SSH_OPTS="-p ${REMOTE_PORT} -o StrictHostKeyChecking=accept-new"
 
-echo "[1/4] Sync source on remote host (${REMOTE_HOST})..."
+echo "[1/5] Sync source on remote host (${REMOTE_HOST})..."
 ssh ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" "
   set -euo pipefail
   mkdir -p '${DEPLOY_DIR}'
@@ -26,29 +26,36 @@ ssh ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" "
   fi
 "
 
-echo "[2/4] Build on remote host..."
+echo "[2/5] Install dependencies..."
 ssh ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" "
   set -euo pipefail
   cd '${DEPLOY_DIR}'
-
-  if [ -x ./mvnw ]; then
-    ./mvnw -DskipTests clean package
-  else
-    mvn -DskipTests clean package
-  fi
+  corepack enable || true
+  pnpm install --frozen-lockfile || pnpm install
 "
 
-echo "[3/4] Restart service on remote host..."
+echo "[3/5] Build and migrate..."
 ssh ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" "
   set -euo pipefail
   cd '${DEPLOY_DIR}'
-  pkill -f 'io-manager-0.0.1-SNAPSHOT.jar' || true
-  nohup java -jar target/io-manager-0.0.1-SNAPSHOT.jar --server.port=${APP_PORT} > app.log 2>&1 &
+  npx prisma generate
+  npx prisma migrate deploy
+  pnpm build
+"
+
+echo "[4/5] Restart service..."
+ssh ${SSH_OPTS} "${REMOTE_USER}@${REMOTE_HOST}" "
+  set -euo pipefail
+  cd '${DEPLOY_DIR}'
+  pm2 delete io-manager 2>/dev/null || true
+  PORT=${APP_PORT} pm2 start dist/main.js --name io-manager
+  pm2 save
   sleep 2
-  tail -n 40 app.log || true
+  pm2 logs io-manager --lines 20 --nostream || true
 "
 
-echo "[4/4] Health check..."
-curl -fsS "http://${REMOTE_HOST}:${APP_PORT}/api/health"
-
-echo "Deploy done."
+echo "[5/5] Health check..."
+sleep 3
+curl -fsS "http://${REMOTE_HOST}:${APP_PORT}/api/v1/health"
+echo ""
+echo "Deploy done. Dashboard: http://${REMOTE_HOST}:${APP_PORT}/"

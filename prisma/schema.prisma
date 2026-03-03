@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id        String   @id @default(uuid())
+  name      String
+  goal      String
+  owner     String   @default("boss")
+  status    String   @default("Active")
+  createdAt DateTime @default(now()) @map("created_at")
+  tasks     Task[]
+
+  @@map("projects")
+}
+
+model Task {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  title     String
+  assignee  String   @default("unassigned")
+  type      String   @default("Task")
+  dependsOn String   @default("[]") @map("depends_on")
+  status    String   @default("Backlog")
+  note      String   @default("")
+  artifacts String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  timeoutAt DateTime? @map("timeout_at")
+
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([status])
+  @@index([assignee])
+  @@map("tasks")
+}
+
+model EventLog {
+  id        String   @id @default(uuid())
+  type      String
+  payload   String
+  actorId   String   @map("actor_id")
+  actorRole String   @map("actor_role")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([type])
+  @@index([createdAt])
+  @@map("event_logs")
+}
+
+model Template {
+  id             String @id @default(uuid())
+  name           String
+  tags           String @default("[]")
+  defaultTimeout Int    @default(60) @map("default_timeout")
+
+  @@map("templates")
+}
+
+model Worker {
+  id     String @id @default(uuid())
+  name   String
+  tags   String @default("[]")
+  status String @default("idle")
+
+  @@map("workers")
+}

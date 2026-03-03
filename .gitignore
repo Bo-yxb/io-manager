@@ -2,3 +2,7 @@ node_modules/
 apps/*/node_modules/
 *.log
 .env
+dist/
+prisma/*.db
+prisma/*.db-journal
+coverage/

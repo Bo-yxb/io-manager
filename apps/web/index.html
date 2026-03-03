@@ -62,7 +62,7 @@
   </section>
 
   <script>
-    const API = (location.hostname === 'localhost' ? 'http://localhost:7100' : 'http://' + location.hostname + ':7100') + '/api';
+    const API = (location.hostname === 'localhost' ? 'http://localhost:7100' : location.origin) + '/api/v1';
     const apiKey = localStorage.getItem('io_api_key') || prompt('请输入 x-api-key（老板默认: boss_token_7100）') || '';
     localStorage.setItem('io_api_key', apiKey);
 
@@ -155,7 +155,18 @@
     }
 
     load();
-    setInterval(load, 5000);
+
+    // SSE real-time updates with polling fallback
+    if (typeof EventSource !== 'undefined') {
+      const evtSource = new EventSource(API + '/dashboard/stream');
+      evtSource.onmessage = () => load();
+      evtSource.onerror = () => {
+        evtSource.close();
+        setInterval(load, 5000);
+      };
+    } else {
+      setInterval(load, 5000);
+    }
   </script>
 </body>
 </html>
