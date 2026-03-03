@@ -1,27 +1,11 @@
 # io-manager
 
-AI-PM 服务的独立后端系统，负责项目规划、看板管理、任务拆解与 Agent 协作。
+AI-PM 服务的独立异步后端调度系统，负责微观节点流转、状态机维护、高并发分发与上帝视角大盘透出。
 
-## Tech Stack
-- Java 17
-- Spring Boot 3
-- Spring Web
-- Spring Data JPA
-- Lombok
-- H2 (dev runtime)
+> ⚠️ 该项目已全面升级为基于 **TypeScript + Node.js** 的事件驱动异步流架构。
 
-## Quick Start
-```bash
-mvn spring-boot:run
-```
+## 详细技术选型与规划详见以下设计文档：
 
-Health check:
-```bash
-curl http://localhost:8080/api/health
-```
-
-## Package Structure
-- `controller` - HTTP 接口
-- `service` - 业务逻辑
-- `domain` - 领域模型
-- `config` - 配置
+- 📂 [产品需求概要 (PRD)](./docs/PRD.md)
+- 📂 [系统架构设计与选型分析 (DESIGN)](./docs/DESIGN.md)
+- 📂 [工程/目录代码接口规范 (TECHNICAL)](./docs/TECHNICAL.md)
