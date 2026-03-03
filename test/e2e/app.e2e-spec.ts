@@ -160,6 +160,34 @@ describe('io-manager API (e2e)', () => {
 
       expect(res.body.data.length).toBeGreaterThanOrEqual(3);
     });
+
+    it('sets worker callbackUrl', async () => {
+      const res = await request(app.getHttpServer())
+        .patch('/api/v1/workers/worker_gaoyuanyuan/callback')
+        .set(BOSS)
+        .send({ callbackUrl: 'http://localhost:9999/hook' })
+        .expect(200);
+
+      expect(res.body.data.callbackUrl).toBe('http://localhost:9999/hook');
+    });
+
+    it('clears worker callbackUrl when not provided', async () => {
+      const res = await request(app.getHttpServer())
+        .patch('/api/v1/workers/worker_gaoyuanyuan/callback')
+        .set(BOSS)
+        .send({})
+        .expect(200);
+
+      expect(res.body.data.callbackUrl).toBeNull();
+    });
+
+    it('returns 404 for unknown worker callback', async () => {
+      return request(app.getHttpServer())
+        .patch('/api/v1/workers/nonexistent/callback')
+        .set(BOSS)
+        .send({ callbackUrl: 'http://localhost:9999/hook' })
+        .expect(404);
+    });
   });
 
   describe('Templates', () => {

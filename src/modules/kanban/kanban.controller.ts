@@ -7,12 +7,14 @@ import { CreateTasksBatchDto } from './dto/create-tasks-batch.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { AgentContext } from '../../shared/interfaces/agent-context.interface';
 import { AutoAssignService } from '../orchestrator/auto-assign.service';
+import { WebhookService } from '../orchestrator/webhook.service';
 
 @Controller('tasks')
 export class KanbanController {
   constructor(
     private readonly kanbanService: KanbanService,
     private readonly autoAssignService: AutoAssignService,
+    private readonly webhookService: WebhookService,
   ) {}
 
   @Get()
@@ -23,22 +25,36 @@ export class KanbanController {
 
   @Post()
   @Roles('boss', 'pm')
-  create(@Body() dto: CreateTaskDto, @CurrentAgent() agent: AgentContext) {
-    return this.kanbanService.create(
+  async create(@Body() dto: CreateTaskDto, @CurrentAgent() agent: AgentContext) {
+    const task = await this.kanbanService.create(
       dto,
       agent,
       (type) => this.autoAssignService.assignWorker(type),
     );
+
+    if (task.assignee && task.assignee !== 'unassigned') {
+      this.webhookService.notifyTaskAssigned(task.assignee, task);
+    }
+
+    return task;
   }
 
   @Post('batch')
   @Roles('boss', 'pm')
-  createBatch(@Body() dto: CreateTasksBatchDto, @CurrentAgent() agent: AgentContext) {
-    return this.kanbanService.createBatch(
+  async createBatch(@Body() dto: CreateTasksBatchDto, @CurrentAgent() agent: AgentContext) {
+    const tasks = await this.kanbanService.createBatch(
       dto,
       agent,
       (type) => this.autoAssignService.assignWorker(type),
     );
+
+    for (const task of tasks) {
+      if (task.assignee && task.assignee !== 'unassigned') {
+        this.webhookService.notifyTaskAssigned(task.assignee, task);
+      }
+    }
+
+    return tasks;
   }
 
   @Patch(':id/status')

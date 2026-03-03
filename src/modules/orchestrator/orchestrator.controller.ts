@@ -4,6 +4,7 @@ import { CurrentAgent } from '../../core/decorators/current-agent.decorator';
 import { OrchestratorService } from './orchestrator.service';
 import { WorkerReportDto } from './dto/worker-report.dto';
 import { UpdateWorkerStatusDto } from './dto/update-worker-status.dto';
+import { UpdateWorkerCallbackDto } from './dto/update-worker-callback.dto';
 import { AgentContext } from '../../shared/interfaces/agent-context.interface';
 
 @Controller()
@@ -29,5 +30,14 @@ export class OrchestratorController {
     @Body() dto: UpdateWorkerStatusDto,
   ) {
     return this.orchestratorService.updateWorkerStatus(id, dto.status);
+  }
+
+  @Patch('workers/:id/callback')
+  @Roles('boss', 'pm', 'worker')
+  updateWorkerCallback(
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkerCallbackDto,
+  ) {
+    return this.orchestratorService.updateWorkerCallback(id, dto.callbackUrl);
   }
 }

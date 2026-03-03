@@ -6,6 +6,7 @@ import { join } from 'path';
 import { PrismaModule } from './infrastructure/database/prisma.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
 import { EventStoreModule } from './infrastructure/event-store/event-store.module';
+import { SseModule } from './infrastructure/sse/sse.module';
 import { AgentAuthGuard } from './core/guards/agent-auth.guard';
 import { ResponseInterceptor } from './core/interceptors/response.interceptor';
 import { AllExceptionsFilter } from './core/filters/all-exceptions.filter';
@@ -27,6 +28,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     PrismaModule,
     RedisModule,
     EventStoreModule,
+    SseModule,
     ProjectModule,
     BlueprintModule,
     KanbanModule,

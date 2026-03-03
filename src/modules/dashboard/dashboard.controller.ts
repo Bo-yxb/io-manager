@@ -2,7 +2,7 @@ import { Controller, Get, Query, Sse } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { Roles } from '../../core/decorators/roles.decorator';
 import { DashboardService } from './dashboard.service';
-import { SseService } from './sse/sse.service';
+import { SseService } from '../../infrastructure/sse/sse.service';
 
 @Controller()
 export class DashboardController {

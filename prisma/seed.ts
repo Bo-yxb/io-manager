@@ -16,9 +16,9 @@ async function main() {
   }
 
   const workers = [
-    { id: 'worker_gaoyuanyuan', name: '高圆圆', tags: JSON.stringify(['frontend']), status: 'idle' },
-    { id: 'worker_zhaoliying', name: '赵丽颖', tags: JSON.stringify(['backend']), status: 'idle' },
-    { id: 'worker_zhaojinmai', name: '赵今麦', tags: JSON.stringify(['qa', 'doc']), status: 'idle' },
+    { id: 'worker_gaoyuanyuan', name: '高圆圆', tags: JSON.stringify(['frontend']), status: 'idle', callbackUrl: null },
+    { id: 'worker_zhaoliying', name: '赵丽颖', tags: JSON.stringify(['backend']), status: 'idle', callbackUrl: null },
+    { id: 'worker_zhaojinmai', name: '赵今麦', tags: JSON.stringify(['qa', 'doc']), status: 'idle', callbackUrl: null },
   ];
 
   for (const w of workers) {

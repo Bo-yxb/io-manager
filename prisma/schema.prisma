@@ -31,13 +31,15 @@ model Task {
   artifacts String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  timeoutAt DateTime? @map("timeout_at")
+  timeoutAt   DateTime? @map("timeout_at")
+  escalatedAt DateTime? @map("escalated_at")
 
   project   Project  @relation(fields: [projectId], references: [id])
 
   @@index([projectId])
   @@index([status])
   @@index([assignee])
+  @@index([timeoutAt])
   @@map("tasks")
 }
 
@@ -64,10 +66,11 @@ model Template {
 }
 
 model Worker {
-  id     String @id @default(uuid())
-  name   String
-  tags   String @default("[]")
-  status String @default("idle")
+  id          String  @id @default(uuid())
+  name        String
+  tags        String  @default("[]")
+  status      String  @default("idle")
+  callbackUrl String? @map("callback_url")
 
   @@map("workers")
 }

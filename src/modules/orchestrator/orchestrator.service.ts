@@ -37,6 +37,18 @@ export class OrchestratorService {
     return { ...updated, tags: JSON.parse(updated.tags) };
   }
 
+  async updateWorkerCallback(id: string, callbackUrl?: string) {
+    const worker = await this.prisma.worker.findUnique({ where: { id } });
+    if (!worker) throw new NotFoundException('worker not found');
+
+    const updated = await this.prisma.worker.update({
+      where: { id },
+      data: { callbackUrl: callbackUrl || null },
+    });
+
+    return { ...updated, tags: JSON.parse(updated.tags) };
+  }
+
   async workerReport(dto: WorkerReportDto, agent: AgentContext) {
     if (!ALL_TASK_STATUSES.includes(dto.status)) {
       throw new BadRequestException(`invalid status: ${dto.status}`);
