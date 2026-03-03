@@ -1,0 +1,18 @@
+{
+  "project": "io-manager-v2",
+  "updatedAt": "2026-03-03T00:00:00Z",
+  "columns": {
+    "Triage": ["TASK-001"],
+    "Backlog": ["TASK-002", "TASK-003", "TASK-004"],
+    "InProgress": [],
+    "Blocked": [],
+    "Review": [],
+    "Done": []
+  },
+  "tasks": {
+    "TASK-001": "确定 v1 交付范围与部署方案（7100/7101）",
+    "TASK-002": "实现后端核心 API（项目、任务、状态流转、大盘聚合）",
+    "TASK-003": "实现老板大盘前端页面（概览 + 任务列表）",
+    "TASK-004": "部署到 182.92.83.121 并完成联调验收"
+  }
+}

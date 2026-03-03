@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>io-manager Boss Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; background: #0b1020; color: #e6eaf5; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .card { background: #121a33; padding: 12px 16px; border-radius: 10px; min-width: 180px; }
+    .muted { color: #98a2c3; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    td, th { border-bottom: 1px solid #223059; padding: 8px; text-align: left; }
+    input, button { padding: 8px; margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <h1>老板大盘（io-manager）</h1>
+  <p class="muted">实时查看项目规划、任务拆解与执行进度</p>
+
+  <div class="row" id="stats"></div>
+
+  <h2>新建项目</h2>
+  <input id="pName" placeholder="项目名称" />
+  <input id="pGoal" placeholder="项目目标" size="50" />
+  <button onclick="createProject()">创建</button>
+
+  <h2>任务列表</h2>
+  <table>
+    <thead><tr><th>标题</th><th>负责人</th><th>状态</th><th>更新时间</th></tr></thead>
+    <tbody id="tasks"></tbody>
+  </table>
+
+  <script>
+    const API = (location.hostname === 'localhost' ? 'http://localhost:7100' : 'http://' + location.hostname + ':7100') + '/api';
+
+    async function load() {
+      const [overview, tasks] = await Promise.all([
+        fetch(API + '/dashboard/overview').then(r => r.json()),
+        fetch(API + '/tasks').then(r => r.json())
+      ]);
+
+      const data = overview.data;
+      const statsEl = document.getElementById('stats');
+      const cards = [
+        ['项目数', data.projectCount],
+        ['任务总数', data.taskCount],
+        ['进行中', data.statusStats.InProgress || 0],
+        ['阻塞', data.statusStats.Blocked || 0],
+        ['已完成', data.statusStats.Done || 0]
+      ];
+      statsEl.innerHTML = cards.map(([k,v]) => `<div class="card"><div class="muted">${k}</div><div style="font-size:24px">${v}</div></div>`).join('');
+
+      document.getElementById('tasks').innerHTML = tasks.data.map(t => `
+        <tr><td>${t.title}</td><td>${t.assignee}</td><td>${t.status}</td><td>${t.updatedAt || ''}</td></tr>
+      `).join('');
+    }
+
+    async function createProject() {
+      const name = document.getElementById('pName').value;
+      const goal = document.getElementById('pGoal').value;
+      await fetch(API + '/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, goal, owner: 'boss' })
+      });
+      await load();
+    }
+
+    load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>
