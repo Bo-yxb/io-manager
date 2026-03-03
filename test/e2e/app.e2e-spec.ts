@@ -224,5 +224,47 @@ describe('io-manager API (e2e)', () => {
       expect(res.body.data[0].type).toBeDefined();
       expect(res.body.data[0].payload).toBeDefined();
     });
+
+    it('returns burndown chart data', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/dashboard/charts/burndown')
+        .set(BOSS)
+        .expect(200);
+
+      expect(res.body.data.dates).toBeInstanceOf(Array);
+      expect(res.body.data.totalTasks).toBeInstanceOf(Array);
+      expect(res.body.data.remainingTasks).toBeInstanceOf(Array);
+      expect(res.body.data.dates.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('returns task graph data', async () => {
+      // Use the TaskTest project created in Tasks describe block
+      const projects = await request(app.getHttpServer())
+        .get('/api/v1/projects')
+        .set(BOSS);
+      const projectId = projects.body.data[0].id;
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/dashboard/charts/task-graph?projectId=${projectId}`)
+        .set(BOSS)
+        .expect(200);
+
+      expect(res.body.data.nodes).toBeInstanceOf(Array);
+      expect(res.body.data.edges).toBeInstanceOf(Array);
+      expect(typeof res.body.data.truncated).toBe('boolean');
+      expect(res.body.data.nodes.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('returns worker load data', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/dashboard/charts/worker-load')
+        .set(BOSS)
+        .expect(200);
+
+      expect(res.body.data.workers).toBeInstanceOf(Array);
+      expect(res.body.data.statuses).toBeInstanceOf(Array);
+      expect(res.body.data.series).toBeInstanceOf(Array);
+      expect(res.body.data.statuses).toEqual(['Triage', 'Backlog', 'InProgress', 'Blocked', 'Review', 'Done']);
+    });
   });
 });

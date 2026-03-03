@@ -33,6 +33,27 @@ export class DashboardController {
     return this.dashboardService.getAuditLogs(limit ? Number(limit) : 100);
   }
 
+  @Get('dashboard/charts/burndown')
+  @Roles('boss', 'pm', 'worker')
+  getBurndownChart(
+    @Query('projectId') projectId?: string,
+    @Query('days') days?: string,
+  ) {
+    return this.dashboardService.getBurndownData(projectId, days ? Number(days) : 14);
+  }
+
+  @Get('dashboard/charts/task-graph')
+  @Roles('boss', 'pm')
+  getTaskGraph(@Query('projectId') projectId: string) {
+    return this.dashboardService.getTaskGraphData(projectId);
+  }
+
+  @Get('dashboard/charts/worker-load')
+  @Roles('boss', 'pm')
+  getWorkerLoad() {
+    return this.dashboardService.getWorkerLoadData();
+  }
+
   @Sse('dashboard/stream')
   @Roles('boss', 'pm', 'worker')
   stream(@Query('events') events?: string): Observable<MessageEvent> {
