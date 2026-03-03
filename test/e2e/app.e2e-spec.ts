@@ -202,6 +202,143 @@ describe('io-manager API (e2e)', () => {
     });
   });
 
+  describe('Blueprints', () => {
+    let projectId: string;
+    let blueprintId: string;
+    let nodeId: string;
+
+    beforeAll(async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/projects')
+        .set(BOSS)
+        .send({ name: 'BlueprintTest', goal: 'test blueprints' });
+      projectId = res.body.data.id;
+    });
+
+    it('creates a blueprint with auto-decomposition', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/blueprints')
+        .set(BOSS)
+        .send({
+          projectId,
+          requirement: '# 用户系统\n## 注册模块\n### 实现注册页面\n### 编写注册接口\n## 登录模块\n### 实现登录页面',
+        })
+        .expect(201);
+
+      expect(res.body.data.status).toBe('Draft');
+      expect(res.body.data.nodes.length).toBe(6);
+      expect(res.body.data.nodes[0].level).toBe('milestone');
+      expect(res.body.data.nodes[0].title).toBe('用户系统');
+      blueprintId = res.body.data.id;
+    });
+
+    it('lists blueprints', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/blueprints')
+        .set(BOSS)
+        .expect(200);
+
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('gets blueprint detail with nodes', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/blueprints/${blueprintId}`)
+        .set(BOSS)
+        .expect(200);
+
+      expect(res.body.data.nodes).toBeInstanceOf(Array);
+      expect(res.body.data.nodes.length).toBe(6);
+    });
+
+    it('adds a node to blueprint', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/blueprints/${blueprintId}/nodes`)
+        .set(BOSS)
+        .send({ level: 'task', title: '手动添加的任务', taskType: 'qa' })
+        .expect(201);
+
+      expect(res.body.data.title).toBe('手动添加的任务');
+      expect(res.body.data.taskType).toBe('qa');
+      nodeId = res.body.data.id;
+    });
+
+    it('updates a node', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/blueprints/${blueprintId}/nodes/${nodeId}`)
+        .set(BOSS)
+        .send({ title: '更新后的任务', assignee: 'zhaojinmai' })
+        .expect(200);
+
+      expect(res.body.data.title).toBe('更新后的任务');
+      expect(res.body.data.assignee).toBe('zhaojinmai');
+    });
+
+    it('deletes a node', async () => {
+      const res = await request(app.getHttpServer())
+        .delete(`/api/v1/blueprints/${blueprintId}/nodes/${nodeId}`)
+        .set(BOSS)
+        .expect(200);
+
+      expect(res.body.data.deleted).toBe(true);
+    });
+
+    it('approves a blueprint', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/api/v1/blueprints/${blueprintId}`)
+        .set(BOSS)
+        .send({ status: 'Approved' })
+        .expect(200);
+
+      expect(res.body.data.status).toBe('Approved');
+    });
+
+    it('materializes blueprint into tasks', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/blueprints/${blueprintId}/materialize`)
+        .set(BOSS)
+        .send({ autoAssign: true })
+        .expect(201);
+
+      expect(res.body.data.blueprint.status).toBe('Materialized');
+      expect(res.body.data.tasksCreated.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.tasksCreated[0].status).toBe('Backlog');
+    });
+
+    it('rejects update on materialized blueprint', async () => {
+      return request(app.getHttpServer())
+        .patch(`/api/v1/blueprints/${blueprintId}`)
+        .set(BOSS)
+        .send({ status: 'Draft' })
+        .expect(400);
+    });
+
+    it('redecomposes a draft blueprint', async () => {
+      // Create a new blueprint for redecompose test
+      const createRes = await request(app.getHttpServer())
+        .post('/api/v1/blueprints')
+        .set(BOSS)
+        .send({ projectId, requirement: '1. 第一阶段\n- 模块A' });
+      const newBpId = createRes.body.data.id;
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/blueprints/${newBpId}/decompose`)
+        .set(BOSS)
+        .expect(201);
+
+      expect(res.body.data.status).toBe('Draft');
+      expect(res.body.data.nodes.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('rejects worker creating blueprints', async () => {
+      return request(app.getHttpServer())
+        .post('/api/v1/blueprints')
+        .set(WORKER)
+        .send({ projectId, requirement: 'test' })
+        .expect(403);
+    });
+  });
+
   describe('Dashboard', () => {
     it('returns overview', async () => {
       const res = await request(app.getHttpServer())

@@ -20,6 +20,28 @@
     .chart-card h3 { margin: 0 0 8px 0; font-size: 14px; color: #98a2c3; }
     .chart-container { width: 100%; height: 320px; }
     @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+    .bp-status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    .bp-status-Draft { background: #2c3e50; color: #bdc3c7; }
+    .bp-status-Review { background: #2c3e6e; color: #3498db; }
+    .bp-status-Approved { background: #1e4d2b; color: #2ecc71; }
+    .bp-status-Materialized { background: #4a1e6e; color: #9b59b6; }
+    .bp-card { background: #121a33; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; border: 1px solid #223059; }
+    .bp-card:hover { border-color: #3498db; }
+    .bp-tree { margin: 8px 0; padding-left: 0; list-style: none; }
+    .bp-tree li { padding: 4px 0 4px 0; }
+    .bp-node { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 4px; }
+    .bp-node:hover { background: rgba(52,152,219,0.1); }
+    .bp-level { font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+    .bp-level-milestone { background: #e74c3c; color: white; }
+    .bp-level-module { background: #f39c12; color: white; }
+    .bp-level-task { background: #3498db; color: white; }
+    .bp-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .bp-actions button { font-size: 12px; padding: 4px 10px; cursor: pointer; border: none; border-radius: 4px; }
+    .bp-btn-approve { background: #2ecc71; color: white; }
+    .bp-btn-materialize { background: #9b59b6; color: white; }
+    .bp-btn-redecompose { background: #f39c12; color: white; }
+    .bp-btn-delete { background: #e74c3c; color: white; }
+    textarea { width: 100%; min-height: 100px; padding: 8px; font-family: inherit; background: #1a2240; color: #e6eaf5; border: 1px solid #223059; border-radius: 6px; resize: vertical; }
   </style>
 </head>
 <body>
@@ -60,6 +82,19 @@
     <input id="pName" placeholder="项目名称" />
     <input id="pGoal" placeholder="项目目标" size="50" />
     <button onclick="createProject()">创建项目</button>
+  </section>
+
+  <section>
+    <h2>蓝图管理</h2>
+    <p class="muted">发送需求文本，自动拆解为里程碑/模块/任务三级结构，审批后一键生成实际任务</p>
+    <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px;">
+      <select id="bpProjectId" style="min-width:160px;"></select>
+      <div style="flex:1;min-width:300px;">
+        <textarea id="bpRequirement" placeholder="输入需求文本，支持 Markdown 格式：&#10;# 里程碑&#10;## 模块&#10;### 任务&#10;或用数字/横线/星号列表"></textarea>
+      </div>
+      <button onclick="createBlueprint()" style="align-self:flex-start;">创建蓝图</button>
+    </div>
+    <div id="blueprints"></div>
   </section>
 
   <section>
@@ -314,16 +349,24 @@
       document.getElementById('templates').innerHTML = (templates.data || []).map(t => `<li>${t.name} (tags: ${t.tags.join(', ')}) - 超时:${t.defaultTimeout}min</li>`).join('') || '<li>无模板</li>';
       document.getElementById('workers').innerHTML = (workers.data || []).map(w => `<li>${w.name} [${w.status}] tags:${w.tags.join(', ')}</li>`).join('') || '<li>无Worker</li>';
 
-      // Update project dropdown for dependency graph
+      // Update project dropdowns
       const select = document.getElementById('graphProjectId');
       const currentVal = select.value;
+      const projectOptions = (projects.data || []).map(p => '<option value="' + p.id + '">' + p.name + '</option>').join('');
       select.innerHTML = '<option value="">选择项目...</option>' +
         (projects.data || []).map(p => '<option value="' + p.id + '"' + (p.id === currentVal ? ' selected' : '') + '>' + p.name + '</option>').join('');
 
-      // Load charts in parallel
+      // Blueprint project dropdown
+      const bpSelect = document.getElementById('bpProjectId');
+      const bpCurrentVal = bpSelect.value;
+      bpSelect.innerHTML = '<option value="">选择项目...</option>' +
+        (projects.data || []).map(p => '<option value="' + p.id + '"' + (p.id === bpCurrentVal ? ' selected' : '') + '>' + p.name + '</option>').join('');
+
+      // Load charts and blueprints in parallel
       await Promise.all([
         loadBurndownChart(),
         loadWorkerLoadChart(),
+        loadBlueprints(),
         currentVal ? loadTaskGraph() : Promise.resolve(),
       ]);
     }
@@ -364,6 +407,127 @@
       });
       if (result.code !== 0) alert(result.msg + (result.data ? '\n' + JSON.stringify(result.data) : ''));
       await load();
+    }
+
+    // ============ Blueprint Management ============
+    async function createBlueprint() {
+      const projectId = document.getElementById('bpProjectId').value;
+      const requirement = document.getElementById('bpRequirement').value.trim();
+      if (!projectId) return alert('请选择项目');
+      if (!requirement) return alert('请输入需求文本');
+
+      await api('/blueprints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, requirement })
+      });
+      document.getElementById('bpRequirement').value = '';
+      await loadBlueprints();
+    }
+
+    async function loadBlueprints() {
+      const res = await api('/blueprints');
+      const bps = res.data || [];
+      const container = document.getElementById('blueprints');
+
+      if (bps.length === 0) {
+        container.innerHTML = '<p class="muted">暂无蓝图，请在上方创建</p>';
+        return;
+      }
+
+      container.innerHTML = bps.map(bp => {
+        const tree = buildNodeTree(bp.nodes || []);
+        const treeHtml = renderNodeTree(tree, bp.id, bp.status);
+        const canEdit = bp.status !== 'Materialized';
+
+        return `
+          <div class="bp-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <strong>${bp.title}</strong>
+                <span class="bp-status bp-status-${bp.status}">${bp.status}</span>
+                <span class="muted" style="margin-left:8px;">v${bp.version} · ${bp.nodes ? bp.nodes.length : 0} 节点</span>
+              </div>
+              <div class="bp-actions">
+                ${canEdit && bp.status !== 'Approved' ? `<button class="bp-btn-approve" onclick="updateBlueprintStatus('${bp.id}','Approved')">审批通过</button>` : ''}
+                ${bp.status === 'Approved' ? `<button class="bp-btn-materialize" onclick="materializeBlueprint('${bp.id}')">物化为任务</button>` : ''}
+                ${canEdit ? `<button class="bp-btn-redecompose" onclick="redecomposeBlueprint('${bp.id}')">重新拆解</button>` : ''}
+              </div>
+            </div>
+            <div class="muted" style="margin:6px 0;max-height:60px;overflow:hidden;font-size:12px;">${bp.requirement.substring(0, 200)}${bp.requirement.length > 200 ? '...' : ''}</div>
+            ${treeHtml}
+          </div>`;
+      }).join('');
+    }
+
+    function buildNodeTree(nodes) {
+      const map = {};
+      const roots = [];
+      nodes.forEach(n => { map[n.id] = { ...n, children: [] }; });
+      nodes.forEach(n => {
+        if (n.parentId && map[n.parentId]) {
+          map[n.parentId].children.push(map[n.id]);
+        } else {
+          roots.push(map[n.id]);
+        }
+      });
+      return roots;
+    }
+
+    function renderNodeTree(nodes, bpId, bpStatus, depth = 0) {
+      if (!nodes || nodes.length === 0) return '';
+      const canEdit = bpStatus !== 'Materialized';
+      return '<ul class="bp-tree" style="padding-left:' + (depth * 20) + 'px;">' +
+        nodes.map(n => `
+          <li>
+            <div class="bp-node">
+              <span class="bp-level bp-level-${n.level}">${n.level}</span>
+              <span>${n.title}</span>
+              <span class="muted" style="font-size:11px;">${n.taskType !== 'Task' ? '[' + n.taskType + ']' : ''} ${n.assignee ? '@ ' + n.assignee : ''}</span>
+              ${canEdit ? `<button style="font-size:10px;padding:1px 5px;cursor:pointer;" onclick="deleteNode('${bpId}','${n.id}')">x</button>` : ''}
+            </div>
+            ${renderNodeTree(n.children, bpId, bpStatus, depth + 1)}
+          </li>
+        `).join('') + '</ul>';
+    }
+
+    async function updateBlueprintStatus(bpId, status) {
+      await api('/blueprints/' + bpId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      await loadBlueprints();
+    }
+
+    async function materializeBlueprint(bpId) {
+      if (!confirm('确认将蓝图物化为实际任务？此操作不可逆。')) return;
+      const result = await api('/blueprints/' + bpId + '/materialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoAssign: true })
+      });
+      if (result.code === 0) {
+        alert('成功创建 ' + result.data.tasksCreated.length + ' 个任务');
+        await load();
+      } else {
+        alert('物化失败: ' + result.msg);
+      }
+      await loadBlueprints();
+    }
+
+    async function redecomposeBlueprint(bpId) {
+      if (!confirm('重新拆解将删除所有现有节点并重新生成，确认？')) return;
+      await api('/blueprints/' + bpId + '/decompose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      await loadBlueprints();
+    }
+
+    async function deleteNode(bpId, nodeId) {
+      await api('/blueprints/' + bpId + '/nodes/' + nodeId, { method: 'DELETE' });
+      await loadBlueprints();
     }
 
     // Initialize charts and load data
