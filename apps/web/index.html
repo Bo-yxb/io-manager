@@ -9,9 +9,11 @@
     .row { display: flex; gap: 12px; flex-wrap: wrap; }
     .card { background: #121a33; padding: 12px 16px; border-radius: 10px; min-width: 180px; }
     .muted { color: #98a2c3; font-size: 12px; }
+    .danger { color: #ff7b7b; }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; }
     td, th { border-bottom: 1px solid #223059; padding: 8px; text-align: left; }
-    input, button { padding: 8px; margin-right: 8px; }
+    input, button, select { padding: 8px; margin-right: 8px; margin-bottom: 8px; }
+    section { margin-bottom: 20px; }
   </style>
 </head>
 <body>
@@ -20,50 +22,111 @@
 
   <div class="row" id="stats"></div>
 
-  <h2>新建项目</h2>
-  <input id="pName" placeholder="项目名称" />
-  <input id="pGoal" placeholder="项目目标" size="50" />
-  <button onclick="createProject()">创建</button>
+  <section>
+    <h2>项目</h2>
+    <input id="pName" placeholder="项目名称" />
+    <input id="pGoal" placeholder="项目目标" size="50" />
+    <button onclick="createProject()">创建项目</button>
+  </section>
 
-  <h2>任务列表</h2>
-  <table>
-    <thead><tr><th>标题</th><th>负责人</th><th>状态</th><th>更新时间</th></tr></thead>
-    <tbody id="tasks"></tbody>
-  </table>
+  <section>
+    <h2>任务</h2>
+    <input id="tProjectId" placeholder="项目ID" size="20" />
+    <input id="tTitle" placeholder="任务标题" size="30" />
+    <input id="tAssignee" placeholder="执行者（如 zhaoliying）" size="18" />
+    <input id="tDepends" placeholder="依赖任务ID(逗号分隔)" size="30" />
+    <input id="tTimeout" placeholder="超时分钟(默认60)" size="14" />
+    <button onclick="createTask()">创建任务</button>
+
+    <table>
+      <thead><tr><th>标题</th><th>负责人</th><th>状态</th><th>依赖</th><th>操作</th></tr></thead>
+      <tbody id="tasks"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>风险告警</h2>
+    <ul id="risks"></ul>
+  </section>
 
   <script>
     const API = (location.hostname === 'localhost' ? 'http://localhost:7100' : 'http://' + location.hostname + ':7100') + '/api';
 
+    async function api(path, options = {}) {
+      const res = await fetch(API + path, options);
+      return res.json();
+    }
+
     async function load() {
       const [overview, tasks] = await Promise.all([
-        fetch(API + '/dashboard/overview').then(r => r.json()),
-        fetch(API + '/tasks').then(r => r.json())
+        api('/dashboard/overview'),
+        api('/tasks')
       ]);
 
       const data = overview.data;
-      const statsEl = document.getElementById('stats');
       const cards = [
         ['项目数', data.projectCount],
         ['任务总数', data.taskCount],
         ['进行中', data.statusStats.InProgress || 0],
         ['阻塞', data.statusStats.Blocked || 0],
-        ['已完成', data.statusStats.Done || 0]
+        ['已完成', data.statusStats.Done || 0],
+        ['风险', data.riskCount || 0]
       ];
-      statsEl.innerHTML = cards.map(([k,v]) => `<div class="card"><div class="muted">${k}</div><div style="font-size:24px">${v}</div></div>`).join('');
+      document.getElementById('stats').innerHTML = cards.map(([k,v]) => `<div class="card"><div class="muted">${k}</div><div style="font-size:24px">${v}</div></div>`).join('');
 
       document.getElementById('tasks').innerHTML = tasks.data.map(t => `
-        <tr><td>${t.title}</td><td>${t.assignee}</td><td>${t.status}</td><td>${t.updatedAt || ''}</td></tr>
+        <tr>
+          <td>${t.title}</td>
+          <td>${t.assignee}</td>
+          <td>${t.status}</td>
+          <td>${(t.dependsOn || []).join(', ') || '-'}</td>
+          <td>
+            <select id="s-${t.id}">
+              <option>Triage</option><option>Backlog</option><option>InProgress</option><option>Blocked</option><option>Review</option><option>Done</option>
+            </select>
+            <button onclick="changeStatus('${t.id}')">更新</button>
+          </td>
+        </tr>
       `).join('');
+
+      document.getElementById('risks').innerHTML = (data.risks || []).map(r => `<li class="danger">[${r.type}] ${r.title} (${r.assignee}) - ${r.note}</li>`).join('') || '<li>暂无风险</li>';
     }
 
     async function createProject() {
       const name = document.getElementById('pName').value;
       const goal = document.getElementById('pGoal').value;
-      await fetch(API + '/projects', {
+      await api('/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, goal, owner: 'boss' })
       });
+      await load();
+    }
+
+    async function createTask() {
+      const projectId = document.getElementById('tProjectId').value;
+      const title = document.getElementById('tTitle').value;
+      const assignee = document.getElementById('tAssignee').value || 'unassigned';
+      const dependsRaw = document.getElementById('tDepends').value;
+      const timeoutMinutes = Number(document.getElementById('tTimeout').value || 60);
+      const dependsOn = dependsRaw ? dependsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+      await api('/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, title, assignee, dependsOn, timeoutMinutes })
+      });
+      await load();
+    }
+
+    async function changeStatus(taskId) {
+      const status = document.getElementById('s-' + taskId).value;
+      const result = await api('/tasks/' + taskId + '/status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (result.code !== 0) alert(result.msg + (result.data ? '\n' + JSON.stringify(result.data) : ''));
       await load();
     }
 
